@@ -37,6 +37,9 @@ module.exports = function graphQLPersistedDocumentLoader(
         if (options.addTypename)
           operationAST = withTypenameFieldAddedWhereNeeded(operationAST)
 
+        operationAST = removeConnectionDirectives(operationAST)
+        operationAST = removeClientDirectives(operationAST)
+
         const printed = operationRegistrySignature(
           operationAST,
           operationName,
@@ -163,6 +166,34 @@ function withTypenameFieldAddedWhereNeeded(ast) {
           ...node.selectionSet,
           selections: [typenameField, ...node.selectionSet.selections]
         }
+      }
+    }
+  })
+}
+
+function removeConnectionDirectives(ast) {
+  return visit(ast, {
+    Directive(node) {
+      if (node.name.value === 'connection') return null
+      return node
+    }
+  })
+}
+
+function removeClientDirectives(ast) {
+  return visit(ast, {
+    Field(node) {
+      if (
+        node.directives &&
+        node.directives.find(directive => directive.name.value === 'client')
+      )
+        return null
+      return node
+    },
+    OperationDefinition: {
+      leave(node) {
+        if (!node.selectionSet.selections.length) return null
+        return node
       }
     }
   })
